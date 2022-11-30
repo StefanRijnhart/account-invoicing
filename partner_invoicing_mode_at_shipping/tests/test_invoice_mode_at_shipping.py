@@ -38,8 +38,8 @@ class TestInvoiceModeAtShipping(TransactionCase):
         self.partner.invoicing_mode = "at_shipping"
         self.so1.action_confirm()
         for picking in self.so1.picking_ids:
-            for line in picking.move_lines:
-                line.quantity_done = line.product_uom_qty
+            for move in picking.move_ids:
+                move.quantity_done = move.product_uom_qty
                 picking.action_assign()
                 picking.with_context(test_queue_job_no_delay=True).button_validate()
         self.assertEqual(len(self.so1.invoice_ids), 1)
@@ -50,8 +50,8 @@ class TestInvoiceModeAtShipping(TransactionCase):
         self.partner.invoicing_mode = "standard"
         self.so1.action_confirm()
         for picking in self.so1.picking_ids:
-            for line in picking.move_lines:
-                line.quantity_done = line.product_uom_qty
+            for move in picking.move_ids:
+                move.quantity_done = move.product_uom_qty
             picking.action_assign()
             picking.button_validate()
         self.assertEqual(len(self.so1.invoice_ids), 0)
