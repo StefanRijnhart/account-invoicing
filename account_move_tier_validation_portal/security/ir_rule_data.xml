@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="account_invoice_rule_portal" model="ir.rule">
+        <field name="name">Portal Invoices per Validation</field>
+        <field name="model_id" ref="account.model_account_move" />
+        <field name="domain_force">[('has_portal_validation_access', '=', True)]</field>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]" />
+        <field name="perm_create" eval="False" />
+        <field name="perm_write" eval="False" />
+        <field name="perm_unlink" eval="False" />
+    </record>
+    <record id="account_invoice_line_rule_portal" model="ir.rule">
+        <field name="name">Portal Invoice Lines per Validation</field>
+        <field name="model_id" ref="account.model_account_move_line" />
+        <field
+            name="domain_force"
+        >[('move_id.has_portal_validation_access', '=', True)]</field>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]" />
+        <field name="perm_create" eval="False" />
+        <field name="perm_write" eval="False" />
+        <field name="perm_unlink" eval="False" />
+    </record>
+    <record id="res_partner_rule_portal" model="ir.rule">
+        <field name="name">Portal Partners per Validation</field>
+        <field name="model_id" ref="base.model_res_partner" />
+        <field name="domain_force">[('has_portal_validation_access', '=', True)]</field>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]" />
+        <field name="perm_create" eval="False" />
+        <field name="perm_write" eval="False" />
+        <field name="perm_unlink" eval="False" />
+    </record>
+</odoo>

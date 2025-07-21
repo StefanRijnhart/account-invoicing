@@ -1,0 +1,383 @@
+<odoo>
+    <!-- Implement the breadcrumb for the invoice validation section -->
+    <template
+        id="portal_home_menu"
+        name="Portal layout : invoice validation menu entries"
+        inherit_id="portal.portal_breadcrumbs"
+        priority="20"
+    >
+        <xpath expr="//ol[hasclass('o_portal_submenu')]" position="inside">
+            <li
+                t-if="page_name == 'invoice-validation'"
+                t-attf-class="breadcrumb-item #{'active ' if not invoice else ''}"
+            >
+                <a
+                    t-if="invoice"
+                    t-attf-href="/my/invoice-validation?{{ keep_query() }}"
+                >Bill Validation</a>
+                <t t-else="">Bills to Validate</t>
+            </li>
+            <!--
+                 We piggy back on account's override for the current invoice's breadcrumb
+                 because it checks for `invoice` without the context of the page name.
+            -->
+        </xpath>
+    </template>
+
+    <!-- Add a new portal section 'Bill Validation' -->
+    <template
+        id="portal_home"
+        name="Bill Validation"
+        inherit_id="portal.portal_my_home"
+        customize_show="True"
+        priority="40"
+    >
+        <xpath expr="//div[hasclass('o_portal_docs')]" position="before">
+            <t t-set="portal_client_category_enable" t-value="False" />
+            <t t-set="portal_vendor_category_enable" t-value="True" />
+        </xpath>
+        <div id="portal_vendor_category" position="inside">
+            <t t-call="portal.portal_docs_entry">
+                <t t-set="icon" t-value="'/account/static/src/img/Bill.svg'" />
+                <t t-set="title">Bills to Validate</t>
+                <t t-set="url" t-value="'/my/invoice-validation'" />
+                <t t-set="text">Approve or Reject Vendor Bills</t>
+                <t t-set="placeholder_count" t-value="'invoice_validation_count'" />
+            </t>
+        </div>
+    </template>
+
+    <!-- Portal 'list' view of bills to validate -->
+    <template id="portal_invoice_validation" name="My Bills to Validate">
+        <t t-call="portal.portal_layout">
+            <t t-set="breadcrumbs_searchbar" t-value="True" />
+
+            <t t-call="portal.portal_searchbar">
+                <t t-set="title">Bills</t>
+            </t>
+            <t t-if="not invoices">
+                <p
+                    class="alert alert-warning"
+                >There are currently no bills to validate.</p>
+            </t>
+            <t t-if="invoices" t-call="portal.portal_table">
+                <thead>
+                    <tr class="active">
+                        <th name="relation">Vendor</th>
+                        <th name="invoice_number">Bill #</th>
+                        <th name="requested_date">Validation Requested</th>
+                        <th name="invoice_date">Bill Date</th>
+                        <th name="due_date" class='d-none d-md-table-cell'>Due Date</th>
+                        <th name="amount" class="text-end pe-3">Amount</th>
+                        <th name="status">Validation Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <t t-foreach="invoices" t-as="invoice_data">
+                        <t t-set="invoice" t-value="invoice_data['invoice']" />
+                        <t
+                            t-set="portal_url"
+                            t-value="invoice.get_portal_url_validation()"
+                        />
+                        <tr>
+                            <td>
+                                <a t-att-href="portal_url" t-att-title="relation">
+                                    <t t-out="invoice_data['relation']" />
+                                </a>
+                            </td>
+                            <td>
+                                <a t-att-href="portal_url" t-att-title="invoice_name">
+                                    <t t-out="invoice_data['invoice_label']" />
+                                </a>
+                            </td>
+                            <td>
+                                <span
+                                    t-out="invoice_data['requested_date']"
+                                    widget="date"
+                                />
+                            </td>
+                            <td>
+                                <span t-field="invoice.invoice_date" />
+                            </td>
+                            <td
+                                class='d-none d-md-table-cell'
+                                t-att-class="'text-danger' if invoice.invoice_date_due and invoice.invoice_date_due &lt; datetime.date.today() and invoice.payment_state in ['not_paid', 'partial'] else ''"
+                            >
+                                <span t-field="invoice.invoice_date_due" />
+                            </td>
+                            <td class="text-end pe-3">
+                                <span
+                                    t-out="invoice.amount_total"
+                                    t-options='{"widget": "monetary", "display_currency": invoice.currency_id}'
+                                />
+                            </td>
+                            <td name="validation_status">
+                                <span
+                                    t-if="invoice.validation_status == 'validated'"
+                                    class="badge rounded-pill text-bg-success"
+                                >
+                                    <i
+                                        class="fa fa-fw fa-check"
+                                        aria-label="Validated"
+                                        title="Validated"
+                                        role="img"
+                                    />
+                                    <span class="d-none d-md-inline"> Validated</span>
+                                </span>
+                                <span
+                                    t-elif="invoice.pending_for_me"
+                                    class="badge rounded-pill text-bg-info"
+                                >
+                                    <i
+                                        class="fa fa-fw fa-check"
+                                        aria-label="pending"
+                                        title="Validation Required"
+                                        role="img"
+                                    />
+                                    <span
+                                        class="d-none d-md-inline"
+                                    > Validation Required</span>
+                                </span>
+                                <span
+                                    t-if="invoice.validation_status in ('pending', 'waiting') and not invoice.pending_for_me"
+                                    class="badge rounded-pill text-bg-light"
+                                >
+                                    <i
+                                        class="fa fa-fw fa-check"
+                                        aria-label="pending"
+                                        title="Waiting on Others"
+                                        role="img"
+                                    />
+                                    <span
+                                        class="d-none d-md-inline"
+                                    > Waiting on Others</span>
+                                </span>
+                                <span
+                                    t-elif="invoice.validation_status == 'rejected'"
+                                    class="badge rounded-pill text-bg-warning"
+                                >
+                                    <i
+                                        class="fa fa-fw fa-remove"
+                                        aria-label="Rejected"
+                                        title="Rejected"
+                                        role="img"
+                                    />
+                                    <span class="d-none d-md-inline"> Rejected</span>
+                                </span>
+                            </td>
+                        </tr>
+                    </t>
+                </tbody>
+            </t>
+        </t>
+    </template>
+
+    <!-- Portal view of a single bill to validate -->
+    <template
+        id="portal_invoice_validation_page"
+        name="Bill"
+        inherit_id="portal.portal_sidebar"
+        primary="True"
+    >
+        <xpath expr="//div[hasclass('o_portal_sidebar')]" position="inside">
+            <t
+                t-set="o_portal_fullwidth_alert"
+                groups="sales_team.group_sale_salesman,account.group_account_invoice,account.group_account_readonly"
+            >
+                <t t-call="portal.portal_back_in_edit_mode">
+                    <t
+                        t-set="backend_url"
+                        t-value="'/odoo/action-account.action_move_out_invoice_type/%s' % invoice.id"
+                    />
+                </t>
+            </t>
+
+            <div class="row o_portal_invoice_sidebar">
+                <!-- Sidebar -->
+                <t t-call="portal.portal_record_sidebar">
+                    <t t-set="classes" t-value="'col-lg-4 col-xxl-3 d-print-none'" />
+                    <t t-set="title">
+                        <h2 class="mb-0 text-break mx-auto">
+                            <span t-field="invoice.amount_total" />
+                        </h2>
+                        <!-- Indicate current validation status -->
+                        <div class="my-1 w-100">
+                            <div
+                                t-if="invoice.validation_status == 'rejected'"
+                                class="alert alert-warning px-2 py-1 text-center mb-2"
+                            >
+                                Bill is Rejected
+                            </div>
+                            <div
+                                t-if="invoice.validation_status == 'pending' and invoice.pending_for_me"
+                                class="alert alert-info px-2 py-1 text-center mb-2"
+                            >
+                                Validation Required
+                            </div>
+                            <div
+                                t-if="invoice.validation_status == 'pending' and not invoice.pending_for_me"
+                                class="alert alert-light px-2 py-1 text-center mb-2"
+                            >
+                                Waiting on Others
+                            </div>
+                            <div
+                                t-if="invoice.validation_status == 'validated'"
+                                class="alert alert-success px-2 py-1 text-center mb-2"
+                            >
+                                Bill is Approved
+                            </div>
+                        </div>
+                        <!-- Validation submission form -->
+                        <div
+                            class="o_portal_tier_validation_form"
+                            t-if="invoice.validation_status == 'pending' and invoice.pending_for_me"
+                        >
+                            <form
+                                method="post"
+                                t-att-action="invoice.get_portal_url_validation(submit=True)"
+                            >
+                                <input
+                                    type="hidden"
+                                    name="csrf_token"
+                                    t-att-value="request.csrf_token()"
+                                />
+                                <input
+                                    type="hidden"
+                                    name="action"
+                                    id="action-field"
+                                    value=""
+                                />
+                                <div
+                                    t-if="invoice.has_comment"
+                                    class="d-flex flex-lg-column flex-xl-row flex-wrap gap-2"
+                                >
+                                    <label
+                                        class="col-form-label"
+                                        for="comment"
+                                    >Please submit your validation plus comment.</label>
+                                    <input
+                                        type="text"
+                                        name="comment"
+                                        t-attf-class="form-control #{error and error.get('name') and 'is-invalid' or ''}"
+                                    />
+                                </div>
+                                <div
+                                    t-if="not invoice.has_comment"
+                                    class="d-flex flex-lg-column flex-xl-row flex-wrap gap-2"
+                                >
+                                    <span>Please submit your validation.</span>
+                                </div>
+                                <div
+                                    class="o_approve d-flex flex-lg-column flex-xl-row flex-wrap gap-2 mt-3"
+                                >
+                                    <button
+                                        type="submit"
+                                        class="btn btn-success o_download_btn flex-grow-1"
+                                        title="Validate"
+                                        onclick="document.getElementById('action-field').value = 'validate';"
+                                    >
+                                        <i class="fa fa-check" /> Validate
+                                    </button>
+                                </div>
+                                <div
+                                    class="o_reject d-flex flex-lg-column flex-xl-row flex-wrap gap-2 mt-3"
+                                >
+                                    <button
+                                        type="submit"
+                                        class="btn btn-danger o_download_btn flex-grow-1"
+                                        title="Reject"
+                                        onclick="document.getElementById('action-field').value = 'reject';"
+                                    >
+                                        <i class="fa fa-remove" /> Reject
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </t>
+
+                    <t t-set="entries">
+                        <div class="d-flex flex-column gap-4 mt-3">
+                            <div class="d-flex flex-column gap-2">
+                                <div
+                                    class="o_download_pdf d-flex flex-lg-column flex-xl-row flex-wrap gap-2"
+                                >
+                                    <a
+                                        class="btn btn-light o_download_btn flex-grow-1"
+                                        t-att-href="invoice.get_portal_url(report_type='pdf', download=True)"
+                                        title="Download"
+                                        role="button"
+                                    >
+                                        <i class="fa fa-download" /> Download
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6>
+                                    <small class="text-muted">
+                                        <t
+                                            t-if="invoice.move_type in ('out_invoice', 'out_refund')"
+                                        >
+                                            Customer
+                                        </t>
+                                        <t
+                                            t-if="invoice.move_type in ('in_invoice', 'in_refund')"
+                                        >
+                                            Vendor
+                                        </t>
+                                    </small>
+                                </h6>
+                                <t t-call="portal.portal_my_contact">
+                                    <!-- show company avatar -->
+                                    <t
+                                        t-set="_contactAvatar"
+                                        t-value="image_data_uri(invoice.commercial_partner_id.avatar_128)"
+                                    />
+                                    <t
+                                        t-set="_contactName"
+                                        t-value="invoice.partner_id.display_name"
+                                    />
+                                    <t t-set="_contactLink" t-value="False" />
+                                    <div
+                                        t-field="invoice.partner_id"
+                                        t-options='{"widget": "contact", "fields": ["city", "phone"]}'
+                                    />
+                                </t>
+                            </div>
+                        </div>
+                    </t>
+                </t>
+
+                <!-- Page Content -->
+                <div
+                    id="invoice_content"
+                    class="o_portal_content col-12 col-lg-8 col-xxl-9"
+                >
+                    <t t-if="error or warning" t-call="account.portal_invoice_error" />
+                    <t
+                        t-if="success and (not error and not warning)"
+                        t-call="account.portal_invoice_success"
+                    />
+
+                    <div
+                        class="o_portal_html_view position-relative bg-white shadow overflow-hidden"
+                    >
+                        <div class="o_portal_html_loader text-center">
+                            <i
+                                class="fa fa-circle-o-notch fa-spin fa-2x fa-fw text-black-50"
+                            />
+                        </div>
+                        <iframe
+                            id="invoice_html"
+                            class="position-relative d-block"
+                            width="100%"
+                            height="100%"
+                            frameborder="0"
+                            scrolling="no"
+                            t-att-src="invoice.get_portal_url(report_type='html')"
+                        />
+                    </div>
+                </div>
+            </div>
+        </xpath>
+    </template>
+</odoo>
